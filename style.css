@@ -1,0 +1,275 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    height: 100vh;
+    background-color: #1e1e1e;
+    font-family: Arial, sans-serif;
+}
+
+#main-container {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    padding-top: 20px;
+    gap: 30px;
+}
+
+#history-container {
+    position: relative;
+    width: 200px;
+    max-height: 500px;
+    overflow-y: auto;
+    background-color: #2c2c2c;
+    color: #eaeaea;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 14px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    display: none;               /* start hidden */
+    transition: opacity 0.2s;
+}
+
+#history-container div {
+    padding: 4px 0;
+    border-bottom: 1px solid #444;
+    margin-right: 0px;
+}
+
+/* Zebra stripes */
+#history-container .move-entry:nth-child(odd) {
+    background-color: rgba(255,255,255,0.05);
+}
+#history-container .move-entry:nth-child(even) {
+    background-color: rgba(255,255,255,0.1);
+}
+
+/* Highlight the very latest move */
+#history-container .move-entry.current-move {
+    background-color: rgba(255,215,0,0.2);
+}
+
+#history-container .move-entry {
+    list-style-type: decimal;
+    margin: 0;
+    padding: 4px 8px;
+}
+
+/* ===================================== */
+/*           Responsive Breakpoints      */
+/* ===================================== */
+
+/* Tablet and below: stack history above board */
+@media (max-width: 768px) {
+  #main-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px;
+  }
+/* style.css */
+#history-container {
+  /* instead of “auto” height, give it a fixed one: */
+  height: 300px;        /* or whatever fits your design */
+  overflow-y: auto;     /* scroll when content overflows */
+  padding-top: 30px;    /* if you still need space for the 🔗 icon */
+  margin: 0;
+}
+
+  #game-container {
+    width: 100%;
+  }
+}
+
+/* Phone and below: shrink fonts & padding */
+@media (max-width: 480px) {
+  #history-container {
+    font-size: 12px;
+    padding: 6px;
+    max-height: 150px;
+  }
+  #history-container .move-entry {
+    padding: 2px 4px;
+  }
+}
+
+/* Ensure the p5.js canvas scales to its container */
+/* #game-container canvas {
+  width: 100% !important;
+  height: auto  !important;
+  max-width: 800px;
+  max-height: calc(100vh - 250px);
+} */
+  canvas {
+    position: relative;
+    z-index: 1;
+  }
+/* Container for the buttons */
+.button-container {
+    display: flex;
+    gap: 15px; /* Reduce the gap between buttons */
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+}
+
+/* Shared arcade-style button styling */
+.game-button {
+ /* Neon gradient */
+    color: #fff;
+    font-size: 16px; /* Smaller font size */
+    font-family: 'Press Start 2P', sans-serif; /* Retro arcade font */
+    border: 3px solid #fff;
+    border-radius: 10px; /* Slightly smaller border radius */
+    padding: 8px 16px; /* Smaller padding */
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(255, 0, 102, 0.5), 0 0 15px rgba(102, 0, 204, 0.5); /* Neon glow */
+    transition: all 0.3s ease-in-out;
+    position: relative;
+    z-index: 10;
+    text-transform: uppercase;
+    letter-spacing: 1.5px; /* Slightly smaller letter spacing */
+}
+
+/* Hover effect for arcade-style buttons */
+.game-button:hover {
+    background: linear-gradient(135deg, #6600cc, #ff0066);
+    box-shadow: 0 0 20px rgba(255, 0, 102, 0.7), 0 0 25px rgba(102, 0, 204, 0.7);
+    transform: translateY(-4px) scale(1.05); /* Slightly smaller grow effect */
+}
+
+/* Active state for arcade-style buttons */
+.game-button:active {
+    background: linear-gradient(135deg, #ff0066, #6600cc);
+    box-shadow: 0 0 10px rgba(255, 0, 102, 0.9), 0 0 15px rgba(102, 0, 204, 0.9);
+    transform: translateY(2px) scale(1);
+}
+
+/* ===================================== */
+/* Back Button Specific Styles */
+#back-button {
+    font-size: 14px; /* Smaller font size */
+    padding: 10px 20px; /* Smaller padding */
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(192, 57, 43, 0.5), 0 0 15px rgba(142, 68, 173, 0.5);
+}
+
+/* Hover effect for back button */
+#back-button:hover {
+    box-shadow: 0 0 20px rgba(192, 57, 43, 0.7), 0 0 25px rgba(142, 68, 173, 0.7);
+}
+
+/* Active effect for back button */
+#back-button:active {
+    box-shadow: 0 0 10px rgba(192, 57, 43, 0.9), 0 0 15px rgba(142, 68, 173, 0.9);
+}
+
+/* ===================================== */
+/* Best Move Button Specific Styles */
+#best-move-button {
+    font-size: 14px; /* Smaller font size */
+    padding: 10px 20px; /* Smaller padding */
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(41, 128, 185, 0.5), 0 0 15px rgba(142, 68, 173, 0.5);
+}
+
+/* Hover effect for best move button */
+#best-move-button:hover {
+    box-shadow: 0 0 20px rgba(41, 128, 185, 0.7), 0 0 25px rgba(142, 68, 173, 0.7);
+}
+
+/* Active effect for best move button */
+#best-move-button:active {
+    box-shadow: 0 0 10px rgba(41, 128, 185, 0.9), 0 0 15px rgba(142, 68, 173, 0.9);
+}
+#copy-pgn-button {
+  background: none;
+  border: none;
+  color: #eaeaea;
+  font-size: 18px;
+  padding: 5px;
+  cursor: pointer;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+}
+
+#copy-pgn-button:hover {
+  color: #ffd700;
+}
+.copy-pgn-item {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  z-index: 20;
+}
+
+#copy-pgn-button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #ccc;
+  transition: color 0.2s ease;
+}
+
+#copy-pgn-button:hover {
+  color: #ffd700;
+}
+
+#history-container {
+  position: relative; /* Needed for absolute positioning inside */
+}
+/* style.css */
+#history-wrapper {
+    position: relative;
+    width: 200px;
+    max-height: 500px;
+}
+
+/* move only the OL into a scrollable area */
+#history-container {
+    max-height: 500px;
+    overflow-y: auto;
+    padding-top: 30px;    /* space for the icon */
+    margin: 0;            
+}
+
+/* pin the icon */
+#copy-pgn-button {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #ccc;
+    transition: color 0.2s ease;
+    z-index: 10;
+}
+
+#copy-pgn-button:hover {
+    color: #ffd700;
+}
+
+/* And your history-wrapper stays its width */
+#history-wrapper {
+  flex: none;
+  width: 200px;       /* adjust as needed */
+}
+/* 1) make the game-container fill the entire viewport */
