@@ -1,3 +1,4 @@
+
 let WIDTH = 800;
 let HEIGHT = 800;
 let SQUARE_SIZE;
@@ -203,7 +204,7 @@ function computeLayout() {
 
   // Board is square, fitting in remaining width and most of the height.
   // Clamp to a sensible max (1000) so huge displays don't kill FPS.
-  BOARD_SIZE = min(availW, windowWidth * 0.7, windowHeight * 0.8, 500);
+  BOARD_SIZE = min(availW, windowWidth * 0.75, windowHeight * 0.8, 550);
 
   // Final guard if something odd happens
   if (!isFinite(BOARD_SIZE) || BOARD_SIZE <= 0) {
@@ -214,7 +215,7 @@ function computeLayout() {
 
   // 🟢 Always center the board perfectly
   BOARD_X = (width  - BOARD_SIZE) / 2;
-  BOARD_Y = (height - BOARD_SIZE) / 2;
+  BOARD_Y = (height - BOARD_SIZE) / 2 + 20;
 
   // Left panel (eval bar) sticks to left side of board
   evalBarX = BOARD_X - panelW - gap;
@@ -550,7 +551,7 @@ function setup() {
 
   computeBoardSize();
 
-  cnv = createCanvas(BOARD_SIZE, BOARD_SIZE);
+  cnv = createCanvas(BOARD_SIZE, BOARD_SIZE + 60);
   cnv.parent(canvasParent);
   // disable right click only on the chess board canvas
   cnv.elt.addEventListener("contextmenu", (e) => e.preventDefault());
