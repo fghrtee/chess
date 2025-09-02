@@ -215,7 +215,7 @@ function computeLayout() {
 
   // 🟢 Always center the board perfectly
   BOARD_X = (width  - BOARD_SIZE) / 2;
-  BOARD_Y = (height - BOARD_SIZE) / 2 + 20;
+  BOARD_Y = (height - BOARD_SIZE) / 2;
 
   // Left panel (eval bar) sticks to left side of board
   evalBarX = BOARD_X - panelW - gap;
@@ -551,7 +551,7 @@ function setup() {
 
   computeBoardSize();
 
-  cnv = createCanvas(BOARD_SIZE, BOARD_SIZE + 60);
+  cnv = createCanvas(BOARD_SIZE, BOARD_SIZE + 300);
   cnv.parent(canvasParent);
   // disable right click only on the chess board canvas
   cnv.elt.addEventListener("contextmenu", (e) => e.preventDefault());
