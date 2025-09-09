@@ -5,6 +5,8 @@ let SQUARE_SIZE;
 let BOARD_SIZE;   // don’t assign yet, computeLayout() will fill it
 let BOARD_X;
 let BOARD_Y;
+const FPS_SAMPLES = 30; // how many frames to average
+let fpsHistory = [];
 
 // ADD THESE NEAR TOP (with your other layout globals)
 let boardBuffer = null;         // p5.Graphics buffer for the board (cached)
@@ -267,7 +269,21 @@ if (!img || img.width === 0 || img.height === 0) {
     g.noSmooth();
     g.imageMode(CENTER);
     g.clear();
+    // Bake shadow into cached raster
+    const dc = g.drawingContext;
+    dc.shadowOffsetX = 3;
+    dc.shadowOffsetY = 3;
+    dc.shadowBlur = Math.max(2, size * 0.06);
+    dc.shadowColor = "rgba(0,0,0,0.35)";
+
     g.image(PIECES[k], size/2, size/2, size, size);
+
+    // Reset so future graphics aren't polluted
+    dc.shadowOffsetX = 0;
+    dc.shadowOffsetY = 0;
+    dc.shadowBlur = 0;
+    dc.shadowColor = "rgba(0,0,0,0)";
+
     pieceCache[k] = g.get(0, 0, size, size);
     g.remove();
   }
@@ -378,85 +394,85 @@ function handleEvaluationResponse(response) {
     }
 }
 
-// function drawEvalBar() {
-//     // Smoothly transition the current evaluation toward the target
-//     currentEval = lerp(currentEval, targetEval, 0.05);
+function drawEvalBar() {
+    // Smoothly transition the current evaluation toward the target
+    currentEval = lerp(currentEval, targetEval, 0.05);
 
-//     push(); // Save drawing state
-//     const barX = evalBarX;
-//     const barY = BOARD_Y;
-//     const barWidth = EVAL_BAR_WIDTH;
-//     const barHeight = BOARD_SIZE;
+    push(); // Save drawing state
+    const barX = evalBarX;
+    const barY = BOARD_Y;
+    const barWidth = EVAL_BAR_WIDTH;
+    const barHeight = BOARD_SIZE;
 
-//     // Draw the background of the eval bar
-//     stroke(0);
-//     strokeWeight(1);
-//     fill(200);
-//     rect(evalBarX, BOARD_Y, barWidth, barHeight);
+    // Draw the background of the eval bar
+    stroke(0);
+    strokeWeight(1);
+    fill(200);
+    rect(evalBarX, BOARD_Y, barWidth, barHeight);
 
-//     // Calculate where the white and black fills meet.
-//     // (currentEval is scaled 0 to 10 with 5 as neutral.)
-//     let meetingY = map(currentEval, 0, 10, barHeight, 0);
+    // Calculate where the white and black fills meet.
+    // (currentEval is scaled 0 to 10 with 5 as neutral.)
+    let meetingY = map(currentEval, 0, 10, barHeight, 0);
 
-//     // Draw Black fill (for black's advantage) from the top down to meetingY
-//     fill(0);
-//     noStroke();
-//     rect(evalBarX, BOARD_Y, barWidth, meetingY);
+    // Draw Black fill (for black's advantage) from the top down to meetingY
+    fill(0);
+    noStroke();
+    rect(evalBarX, BOARD_Y, barWidth, meetingY);
 
-//     // Draw White fill (for white's advantage) from meetingY to the bottom
-//     fill(255);
-//     rect(evalBarX, BOARD_Y + meetingY, barWidth, barHeight - meetingY);
+    // Draw White fill (for white's advantage) from meetingY to the bottom
+    fill(255);
+    rect(evalBarX, BOARD_Y + meetingY, barWidth, barHeight - meetingY);
 
-//     // Draw a midline at the center of the bar
-//     stroke(0);
-//     strokeWeight(1);
-//     line(evalBarX, BOARD_Y + barHeight / 2, evalBarX + barWidth, BOARD_Y + barHeight / 2);
+    // Draw a midline at the center of the bar
+    stroke(0);
+    strokeWeight(1);
+    line(evalBarX, BOARD_Y + barHeight / 2, evalBarX + barWidth, BOARD_Y + barHeight / 2);
 
-//     // --- New Evaluation Text Drawing Chunk ---
+    // --- New Evaluation Text Drawing Chunk ---
 
-//     // Strip any leading '+' or '-' from evalLabel for display.
-//     let displayText = evalLabel.replace(/^[+-]/, '');
+    // Strip any leading '+' or '-' from evalLabel for display.
+    let displayText = evalLabel.replace(/^[+-]/, '');
 
-//     // Determine text position and color.
-//     let textX = evalBarX + barWidth / 2;
-//     let textY;
-//     let textColor;
+    // Determine text position and color.
+    let textX = evalBarX + barWidth / 2;
+    let textY;
+    let textColor;
 
-//     if (evalLabel === "1-0") {
-//         textY = BOARD_Y + barHeight - 10;
-//         textColor = color(0); // Black text for white win
-//     } else if (evalLabel === "0-1") {
-//         textY = BOARD_Y + 10;
-//         textColor = color(255); // White text for black win
-//     } else if (evalLabel === "½-½") {
-//         textY = BOARD_Y + barHeight / 2;
-//         textColor = color(100); // Gray text for draw
-//     } else if (evalLabel.indexOf("M") !== -1) {
-//         if (evalLabel.startsWith("-")) {
-//             textY = BOARD_Y + 10;
-//             textColor = color(255);
-//         } else {
-//             textY = BOARD_Y + barHeight - 10;
-//             textColor = color(0);
-//         }
-//     } else if (currentEval >= 5) {
-//         textY = BOARD_Y + barHeight - 10;
-//         textColor = color(0, 0, 0);
-//     } else {
-//         textY = BOARD_Y + 10;
-//         textColor = color(255, 255, 255);
-//     }
+    if (evalLabel === "1-0") {
+        textY = BOARD_Y + barHeight - 10;
+        textColor = color(0); // Black text for white win
+    } else if (evalLabel === "0-1") {
+        textY = BOARD_Y + 10;
+        textColor = color(255); // White text for black win
+    } else if (evalLabel === "½-½") {
+        textY = BOARD_Y + barHeight / 2;
+        textColor = color(100); // Gray text for draw
+    } else if (evalLabel.indexOf("M") !== -1) {
+        if (evalLabel.startsWith("-")) {
+            textY = BOARD_Y + 10;
+            textColor = color(255);
+        } else {
+            textY = BOARD_Y + barHeight - 10;
+            textColor = color(0);
+        }
+    } else if (currentEval >= 5) {
+        textY = BOARD_Y + barHeight - 10;
+        textColor = color(0, 0, 0);
+    } else {
+        textY = BOARD_Y + 10;
+        textColor = color(255, 255, 255);
+    }
     
 
-//     // Draw the evaluation text centered in the eval bar
-//     noStroke();
-//     fill(textColor);
-//     textAlign(CENTER, CENTER);
-//     textSize(13);
-//     text(displayText, textX, textY);
+    // Draw the evaluation text centered in the eval bar
+    noStroke();
+    fill(textColor);
+    textAlign(CENTER, CENTER);
+    textSize(13);
+    text(displayText, textX, textY);
 
-//     pop(); // Restore drawing state
-// }
+    pop(); // Restore drawing state
+}
 
   function handleMove(from, to) {
     let move = chess.move({ from, to });  // ✅ Let chess.js handle promotion correctly
@@ -1028,83 +1044,134 @@ function draw() {
     drawGameOverModal();
   }
 
-  // --- Multiple move animations ---
-  for (let anim of moveAnimations) {
-    let { fromX, fromY, toX, toY, piece, progress } = anim;
-    let easedProgress = easeInOutQuad(progress);
-    let x = lerp(fromX, toX, easedProgress);
-    let y = lerp(fromY, toY, easedProgress);
-    image(PIECES[piece], x, y, SQUARE_SIZE, SQUARE_SIZE);
+for (let anim of moveAnimations) {
+  let { fromX, fromY, toX, toY, piece, progress } = anim;
+  let easedProgress = easeInOutQuad(progress);
+  let x = lerp(fromX, toX, easedProgress);
+  let y = lerp(fromY, toY, easedProgress);
 
-    // ⏱ advance progress by real time
-    anim.progress += deltaTime / DEFAULT_ANIM_MS;
+  // piece may be a string key (e.g. "P" / "p") or an object {type, color}
+  let pieceKeyLocal = null;
+  if (typeof piece === 'string') {
+    pieceKeyLocal = piece;
+  } else if (piece && piece.type && piece.color) {
+    pieceKeyLocal = piece.color === 'w' ? piece.type.toUpperCase() : piece.type.toLowerCase();
   }
 
-  // --- Single active moveAnimation ---
-  if (moveAnimation) {
-    let { fromX, fromY, toX, toY, piece, progress } = moveAnimation;
-    let easedProgress = easeInOutQuad(progress);
-    let x = lerp(fromX, toX, easedProgress);
-    let y = lerp(fromY, toY, easedProgress);
-    image(PIECES[piece], x, y, SQUARE_SIZE, SQUARE_SIZE);
+  const drawImg = pieceKeyLocal ? (pieceCache[pieceKeyLocal] || PIECES[pieceKeyLocal]) : null;
+  if (drawImg) {
+    image(drawImg, x, y, SQUARE_SIZE, SQUARE_SIZE);
+  }
 
-    // ⏱ advance progress by real time
-    moveAnimation.progress += deltaTime / DEFAULT_ANIM_MS;
+  // ⏱ advance progress by real time
+  anim.progress += deltaTime / DEFAULT_ANIM_MS;
+}
 
-    if (moveAnimation.progress >= 1) {
-      const { move } = moveAnimation;
 
-      if (moveAnimation.isRedo) {
-        chess.move(move);
-        moveHistory.push(move);
-      } else if (!moveAnimation.isUndoRedo) {
-        const captured = chess.get(move.to);
+if (moveAnimation) {
+  let { fromX, fromY, toX, toY, piece, progress } = moveAnimation;
+  let easedProgress = easeInOutQuad(progress);
+  let x = lerp(fromX, toX, easedProgress);
+  let y = lerp(fromY, toY, easedProgress);
 
-        if (captured) {
-          captureEffects.push({
-            square: move.to,
-            startFrame: frameCount,   // you can later swap this to millis()
-            type: random(["explosion"])
-          });
-        }
+  // robust piece key resolution
+  let pieceKeyLocal = null;
+  if (typeof piece === 'string') {
+    pieceKeyLocal = piece;
+  } else if (piece && piece.type && piece.color) {
+    pieceKeyLocal = piece.color === 'w' ? piece.type.toUpperCase() : piece.type.toLowerCase();
+  }
 
-        const sanMove = chess.move(move);
-        if (captured) {
-          captureSound.play();
-        } else {
-          moveSound.play();
-        }
-        moveHistory.push({ ...move, san: sanMove.san });
-        redoStack = [];
+  const drawImg = pieceKeyLocal ? (pieceCache[pieceKeyLocal] || PIECES[pieceKeyLocal]) : null;
+  if (drawImg) {
+    image(drawImg, x, y, SQUARE_SIZE, SQUARE_SIZE);
+  }
+
+  // ⏱ advance progress by real time
+  moveAnimation.progress += deltaTime / DEFAULT_ANIM_MS;
+
+  if (moveAnimation.progress >= 1) {
+    const { move } = moveAnimation;
+
+    if (moveAnimation.isRedo) {
+      chess.move(move);
+      moveHistory.push(move);
+    } else if (!moveAnimation.isUndoRedo) {
+      const captured = chess.get(move.to);
+
+      if (captured) {
+        captureEffects.push({
+          square: move.to,
+          startFrame: frameCount,
+          type: random(["explosion"])
+        });
       }
 
-      lastMove = move;
-      updateHistoryPanel();
-      moveAnimation = null;
-      updateGameState();
-
-      if (gameMode === "play") {
-        getStockfishEvaluation().then(handleEvaluationResponse);
+      const sanMove = chess.move(move);
+      if (captured) {
+        captureSound.play();
+      } else {
+        moveSound.play();
       }
+      moveHistory.push({ ...move, san: sanMove.san });
+      redoStack = [];
+    }
+
+    lastMove = move;
+    updateHistoryPanel();
+    moveAnimation = null;
+    updateGameState();
+
+    if (gameMode === "play") {
+      getStockfishEvaluation().then(handleEvaluationResponse);
     }
   }
+}
 
-  if (draggingPiece) {
-    let pieceKey = draggingPiece.piece;
-    image(PIECES[pieceKey], draggingPiece.x, draggingPiece.y, SQUARE_SIZE * 1.2, SQUARE_SIZE * 1.2);
+
+if (draggingPiece) {
+  // draggingPiece.piece can be either:
+  // - a string key like "P" or "p"
+  // - an object { type: "p", color: "w" }
+  const pieceData = draggingPiece.piece;
+  let pieceKeyLocal = null;
+
+  if (typeof pieceData === 'string') {
+    pieceKeyLocal = pieceData;
+  } else if (pieceData && pieceData.type) {
+    pieceKeyLocal = pieceData.color === 'w'
+      ? pieceData.type.toUpperCase()
+      : pieceData.type.toLowerCase();
   }
+
+  const drawImg = pieceKeyLocal ? (pieceCache[pieceKeyLocal] || PIECES[pieceKeyLocal]) : null;
+  if (drawImg) {
+    image(drawImg, draggingPiece.x, draggingPiece.y, SQUARE_SIZE * 1.2, SQUARE_SIZE * 1.2);
+  }
+}
 
   if (pendingPromotion) {
     drawPromotionOptions();
   }
 
-  // --- FPS Counter ---
-  textAlign(CENTER, TOP);
-  textSize(20);
-  stroke(0);
-  strokeWeight(4);
-  fill(255);
-  text("FPS: " + floor(frameRate()), width / 2, 10);
+// calculate instantaneous FPS from deltaTime
+let instFps = deltaTime > 0 ? 1000 / deltaTime : frameRate();
+
+// push into history buffer
+fpsHistory.push(instFps);
+if (fpsHistory.length > FPS_SAMPLES) fpsHistory.shift();
+
+// compute average
+let avgFps = fpsHistory.reduce((s, v) => s + v, 0) / fpsHistory.length;
+
+// draw both values (avg and current)
+textAlign(CENTER, TOP);
+textSize(20);
+stroke(0);
+strokeWeight(4);
+fill(255);
+text(`FPS: ${Math.floor(avgFps)} (${Math.floor(instFps)})`, width / 2, 10);
+
 }
 
 function mouseWheel(event) {
@@ -2281,40 +2348,37 @@ function drawLArrow(x, y, dx, dy, shaftW, headL) {
   }
   
 function drawPieces() {
-    for (let row = 0; row < 8; row++) {
-      for (let col = 0; col < 8; col++) {
-        let square = gridToChess(row, col);
-        let piece  = chess.get(square);
-  
-        // Don’t draw the piece if it’s mid-drag, mid-animation, or movingPieces is handling it
-        if (
-          piece &&
-          (!draggingPiece || draggingPiece.square !== square) &&
-          (!moveAnimation || moveAnimation.move.from !== square) &&
-          !movingPieces[square]
-        ) {
-          // ← restore this!
-          let pieceKey = piece.color === "w"
-                       ? piece.type.toUpperCase()
-                       : piece.type.toLowerCase();
-  
-          let x = BOARD_X + col * SQUARE_SIZE + SQUARE_SIZE / 2;
-          let y = BOARD_Y + row * SQUARE_SIZE + SQUARE_SIZE / 2;
-  
-          drawingContext.shadowOffsetX = 3;
-          drawingContext.shadowOffsetY = 3;
-          drawingContext.shadowBlur    = 8;
-          drawingContext.shadowColor   = "rgba(0, 0, 0, 0.3)";
-  
-          image(PIECES[pieceKey], x, y, SQUARE_SIZE, SQUARE_SIZE);
-  
-          resetShadow();
-        }
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      let square = gridToChess(row, col);
+      let piece  = chess.get(square);
+
+      // Don’t draw the piece if it’s mid-drag, mid-animation, or movingPieces is handling it
+      if (
+        piece &&
+        (!draggingPiece || draggingPiece.square !== square) &&
+        (!moveAnimation || moveAnimation.move.from !== square) &&
+        !movingPieces[square]
+      ) {
+        let pieceKey = piece.color === "w"
+                     ? piece.type.toUpperCase()
+                     : piece.type.toLowerCase();
+
+        let x = BOARD_X + col * SQUARE_SIZE + SQUARE_SIZE / 2;
+        let y = BOARD_Y + row * SQUARE_SIZE + SQUARE_SIZE / 2;
+
+          // normalize the animation "piece" to a pieceKey string
+          const pieceKeyLocal = (typeof piece === 'string')
+              ? piece
+              : (piece && piece.type ? (piece.color === 'w' ? piece.type.toUpperCase() : piece.type.toLowerCase()) : null);
+
+          const drawImg = pieceKeyLocal ? (pieceCache[pieceKeyLocal] || PIECES[pieceKeyLocal]) : null;
+          if (drawImg) image(drawImg, x, y, SQUARE_SIZE, SQUARE_SIZE);
+
       }
     }
   }
-  
-  
+}
 
 function displayGameState() {
     fill(0);
@@ -2977,13 +3041,28 @@ function mouseReleased() {
             }
         } else if (gameMode === "custom") {
             if (targetSquare) {
-                chess.put(
-                    {
-                        type: draggingPiece.piece.toLowerCase(),
-                        color: draggingPiece.piece === draggingPiece.piece.toUpperCase() ? 'w' : 'b'
-                    },
-                    targetSquare
-                );
+                  // normalize draggingPiece -> piece type (single-char) and color
+                  let dp = draggingPiece && draggingPiece.piece;
+                  let typeChar = null;
+                  let colorChar = 'w';
+
+                  if (dp) {
+                    if (typeof dp === 'string') {
+                      typeChar = dp.toLowerCase();
+                      colorChar = dp === dp.toUpperCase() ? 'w' : 'b';
+                    } else if (dp.type) {
+                      // dp looks like { type:'p', color:'b' } or similar
+                      typeChar = dp.type.toLowerCase();
+                      colorChar = dp.color || (dp.type === dp.type.toUpperCase() ? 'w' : 'b');
+                    }
+                  }
+
+                  if (typeChar) {
+                    chess.put({ type: typeChar, color: colorChar }, targetSquare);
+                  } else {
+                    console.warn("Trying to place a piece but draggingPiece data is missing:", draggingPiece);
+                  }
+
                 console.log(`Piece placed on ${targetSquare}`);
             }
             console.log("Piece dropped in custom mode");
@@ -3172,6 +3251,7 @@ function updateMovingPieces() {
 
   for (let key in movingPieces) {
     const p = movingPieces[key];
+    if (!p) continue;
     if (p.progress === undefined) p.progress = 0;
 
     // Progress advances by time, not frames
@@ -3180,12 +3260,22 @@ function updateMovingPieces() {
     // Smooth easing
     const eased = easeInOutQuad(p.progress);
 
-    // Interpolated position
-    p.x = lerp(p.fromX, p.toX, eased);
-    p.y = lerp(p.fromY, p.toY, eased);
+    // Interpolated position (defensive: fallback to existing values)
+    p.x = lerp(p.fromX ?? p.x ?? 0, p.toX ?? p.x ?? 0, eased);
+    p.y = lerp(p.fromY ?? p.y ?? 0, p.toY ?? p.y ?? 0, eased);
 
-    // Draw piece (cached raster at SQUARE_SIZE → fast)
-    image(PIECES[p.piece], p.x, p.y, SQUARE_SIZE, SQUARE_SIZE);
+    // Draw only if piece info exists
+    if (p.piece) {
+      const key = (typeof p.piece === 'string')
+        ? p.piece
+        : (p.piece.type ? (p.piece.color === 'w' ? p.piece.type.toUpperCase() : p.piece.type.toLowerCase()) : null);
+
+      if (key) {
+        const drawImg = pieceCache[key] || PIECES[key];
+        if (drawImg) image(drawImg, p.x, p.y, SQUARE_SIZE, SQUARE_SIZE);
+      }
+    }
+
 
     // Done? remove
     if (p.progress >= 1) {
@@ -3209,6 +3299,8 @@ function updateMovingPieces() {
   }
 }
 
+
+
 function easeInOutQuad(t) {
     return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 }
@@ -3220,7 +3312,7 @@ function easeInOutQuad(t) {
 //     let distanceBetweenPoints = dist(x, y, fromX, fromY);
 
 //     push();
-//     // Existing wind gusts
+//     // Existing wind gusts~
 //     for (let i = 0; i < numGusts; i++) {
 //         let t = i / numGusts;
 //         let length = 30 + t * 60;
