@@ -154,44 +154,14 @@ body {
     box-shadow: 0 0 10px rgba(255, 0, 102, 0.9), 0 0 15px rgba(102, 0, 204, 0.9);
     transform: translateY(2px) scale(1);
 }
-
 /* ===================================== */
 /* Back Button Specific Styles */
-#back-button {
-    font-size: 14px; /* Smaller font size */
-    padding: 10px 20px; /* Smaller padding */
-    border-radius: 12px;
-    box-shadow: 0 4px 10px rgba(192, 57, 43, 0.5), 0 0 15px rgba(142, 68, 173, 0.5);
-}
 
-/* Hover effect for back button */
-#back-button:hover {
-    box-shadow: 0 0 20px rgba(192, 57, 43, 0.7), 0 0 25px rgba(142, 68, 173, 0.7);
-}
-
-/* Active effect for back button */
-#back-button:active {
-    box-shadow: 0 0 10px rgba(192, 57, 43, 0.9), 0 0 15px rgba(142, 68, 173, 0.9);
-}
 
 /* ===================================== */
 /* Best Move Button Specific Styles */
-#best-move-button {
-    font-size: 14px; /* Smaller font size */
-    padding: 10px 20px; /* Smaller padding */
-    border-radius: 12px;
-    box-shadow: 0 4px 10px rgba(41, 128, 185, 0.5), 0 0 15px rgba(142, 68, 173, 0.5);
-}
 
-/* Hover effect for best move button */
-#best-move-button:hover {
-    box-shadow: 0 0 20px rgba(41, 128, 185, 0.7), 0 0 25px rgba(142, 68, 173, 0.7);
-}
 
-/* Active effect for best move button */
-#best-move-button:active {
-    box-shadow: 0 0 10px rgba(41, 128, 185, 0.9), 0 0 15px rgba(142, 68, 173, 0.9);
-}
 #copy-pgn-button {
   background: none;
   border: none;

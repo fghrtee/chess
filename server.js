@@ -31,7 +31,8 @@ app.use(cors());
 
 app.get('/start', (req, res) => {
     sendToStockfish('uci');
-    sendToStockfish('setoption name UCI_LimitStrength value true');
+    sendToStockfish('setoption name UCI_LimitStrength value false', stockfishMove);
+    sendToStockfish('setoption name UCI_LimitStrength value false', stockfishEval);
     sendToStockfish('ucinewgame');
     sendToStockfish('stop', stockfishEval);
     res.send('Stockfish initialized');
@@ -40,9 +41,9 @@ app.get('/start', (req, res) => {
 app.post('/move', (req, res) => {
     const fen = req.body.fen || 'startpos';
     console.log("Evaluating FEN:", fen);
-    const level = req.body.level ?? 10;
-    const depth = req.body.depth ?? 10;
-    const time = req.body.time ?? 1000;
+    const level = req.body.level ?? 20;
+    const depth = req.body.depth ?? 20;
+    const time = req.body.time ?? 2000;
 
     console.log(`Bot Settings: Level=${level}, Depth=${depth}, Time=${time}ms`);
 

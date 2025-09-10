@@ -7,13 +7,15 @@ let BOARD_X;
 let BOARD_Y;
 const FPS_SAMPLES = 30; // how many frames to average
 let fpsHistory = [];
+// add near other globals
+let transientHiddenSquares = {}; // { "e4": true } - hides squares immediately on drop until animation finishes
 
 // ADD THESE NEAR TOP (with your other layout globals)
 let boardBuffer = null;         // p5.Graphics buffer for the board (cached)
 let pieceCache = {};            // pre-rasterized piece images (key -> p5.Image)
 let lastSquareSize = 0;         // used to detect size change
 let isRenderingLocked = false;  // when true we call noLoop() to save CPU
-const DEFAULT_ANIM_MS = 300;    // default animation duration (ms) for piece moves
+const DEFAULT_ANIM_MS = 200;    // default animation duration (ms) for piece moves
 
 let historyScroll = 0;
 let lastRenderedMoveIdx = 0;
@@ -100,7 +102,7 @@ let botThinking = false;
 let movingPieces = {};
 let moveAnimation = null;
 const ANIMATION_DURATION = 10;
-let stockfishLevel = 20; // Default Stockfish level
+let stockfishLevel = 1; // Default Stockfish level
 let gameMode = "menu"; // "menu", "play", or "custom"
 let whitePieceBar = ["wP", "wR", "wN", "wB", "wQ", "wK"];
 let blackPieceBar = ["bP", "bR", "bN", "bB", "bQ", "bK"];
@@ -127,8 +129,8 @@ let gameSettings = {
     animationDuration: ANIMATION_DURATION,
     showEvalBar: true,
     botLevel: stockfishLevel,
-    botDepth: 10,
-    botTime: 1000,
+    botDepth: 20,
+    botTime: 9000,
     undoEnabled: true,
     redoEnabled: true
 };
@@ -558,7 +560,7 @@ function startGame() {
 }
 
 function setup() {
-  pixelDensity(2);
+  pixelDensity(3);
   frameRate(60);
   noSmooth();
   imageMode(CENTER);
@@ -580,10 +582,10 @@ function setup() {
   function updateButtonsVisibility() {
     if (gameMode === "play") {
       backButton.show();
-      toggleButton.show();
+      toggleButton.hide();
+      // toggleButton.show();
     } else {
       backButton.hide();
-      toggleButton.hide();
     }
   }
   
@@ -1125,6 +1127,7 @@ if (moveAnimation) {
     if (gameMode === "play") {
       getStockfishEvaluation().then(handleEvaluationResponse);
     }
+    transientHiddenSquares = {};
   }
 }
 
@@ -1354,9 +1357,6 @@ function goToMenu() {
     drawMenu();
 }
 
-// At the top of your sketch, declare these globals once:
-
-// …later, your drawMenu() becomes:
 function drawMenu() {
     background(BG_COLOR);
   
@@ -1642,32 +1642,43 @@ function drawMenu() {
             }
         pop();
         
-        // === BACK BUTTON ===
-        let backButtonW = 100, backButtonH = 40;
-        let backX = mX + mW - backButtonW - pad;
-        let backY = mY + mH - backButtonH - 20;
-        
-        // Store click area for back button
-        window.modalClickAreas.backButton = {x: backX, y: backY, w: backButtonW, h: backButtonH};
-        
-        let isHoveringBack = mouseX >= backX && mouseX <= backX + backButtonW && 
-                            mouseY >= backY && mouseY <= backY + backButtonH;
-        
-        // Back button styling
-        if (isHoveringBack) {
-            fill(80, 140, 80);
-            stroke(120, 180, 120);
-        } else {
-            fill(60, 120, 60);
-            stroke(100, 160, 100);
-        }
-        strokeWeight(2);
-        rect(backX, backY, backButtonW, backButtonH, 8);
-        
-        fill(255);
-        textAlign(CENTER, CENTER);
-        textSize(16);
-        text("Back", backX + backButtonW/2, backY + backButtonH/2);
+         // Responsive sizing: fraction of modal width, clamped
+          const minW = 80;
+          const maxW = 160;
+          const btnW = constrain(mW * 0.22, minW, maxW); // ~22% of modal width
+          const btnH = (mW < 420) ? 36 : 48;              // smaller on narrow modals
+          const gap  = 20;
+
+          // Position bottom-right inside the modal
+          const backXr = mX + mW - btnW - gap;
+          const backYr = mY + mH - btnH - gap;
+
+          // Store clickable area for handleModalClick()
+          window.modalClickAreas = window.modalClickAreas || {};
+          window.modalClickAreas.backButton = { x: backXr, y: backYr, w: btnW, h: btnH };
+
+          // Hover test
+          const isHoveringBack = mouseX >= backXr && mouseX <= backXr + btnW &&
+                                 mouseY >= backYr && mouseY <= backYr + btnH;
+
+          push();
+          strokeWeight(2);
+
+          // Use your color constants (no external CSS)
+          fill(isHoveringBack ? BUTTON_HOVER : BUTTON_COLOR);
+          // subtle stroke tint
+          if (isHoveringBack) stroke(120, 180, 120);
+          else stroke(100, 160, 100);
+
+          rect(backXr, backYr, btnW, btnH, 10);
+
+          // Label scales with button height
+          noStroke();
+          fill(255);
+          textAlign(CENTER, CENTER);
+          textSize(constrain(btnH * 0.42, 12, 18));
+          text("Back", backXr + btnW / 2, backYr + btnH / 2);
+          pop();
     }
 }
 
@@ -2348,16 +2359,37 @@ function drawLArrow(x, y, dx, dy, shaftW, headL) {
   }
   
 function drawPieces() {
+  // If a single move animation is active, compute which squares should be hidden:
+  let hideSquares = {}; // map of square -> true
+
+  if (moveAnimation && moveAnimation.move) {
+    const m = moveAnimation.move;
+    if (m.from) hideSquares[m.from] = true;
+    if (m.to) hideSquares[m.to] = true;
+
+    if (m.captured) {
+      if (m.flags && m.flags.indexOf('e') !== -1) {
+        const capSquare = m.to[0] + m.from[1];
+        hideSquares[capSquare] = true;
+      } else {
+        hideSquares[m.to] = true;
+      }
+    }
+  }
+
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
       let square = gridToChess(row, col);
       let piece  = chess.get(square);
 
-      // Don’t draw the piece if it’s mid-drag, mid-animation, or movingPieces is handling it
+      // don’t draw if being dragged, if animation decided to hide it,
+      // or if our transient hide (immediate-on-drop) requests hiding it,
+      // or if other movingPieces map handles it.
       if (
         piece &&
         (!draggingPiece || draggingPiece.square !== square) &&
-        (!moveAnimation || moveAnimation.move.from !== square) &&
+        !hideSquares[square] &&
+        !transientHiddenSquares[square] &&
         !movingPieces[square]
       ) {
         let pieceKey = piece.color === "w"
@@ -2367,14 +2399,8 @@ function drawPieces() {
         let x = BOARD_X + col * SQUARE_SIZE + SQUARE_SIZE / 2;
         let y = BOARD_Y + row * SQUARE_SIZE + SQUARE_SIZE / 2;
 
-          // normalize the animation "piece" to a pieceKey string
-          const pieceKeyLocal = (typeof piece === 'string')
-              ? piece
-              : (piece && piece.type ? (piece.color === 'w' ? piece.type.toUpperCase() : piece.type.toLowerCase()) : null);
-
-          const drawImg = pieceKeyLocal ? (pieceCache[pieceKeyLocal] || PIECES[pieceKeyLocal]) : null;
-          if (drawImg) image(drawImg, x, y, SQUARE_SIZE, SQUARE_SIZE);
-
+        const drawImg = pieceCache[pieceKey] || PIECES[pieceKey];
+        if (drawImg) image(drawImg, x, y, SQUARE_SIZE, SQUARE_SIZE);
       }
     }
   }
@@ -3012,6 +3038,21 @@ function mouseReleased() {
                     draggingPiece = null;
                     console.log("Pawn promotion detected, awaiting user choice:", move);
                 } else {
+                  // ---------- START: transient hide on drop (insert BEFORE moveAnimation = {...}) ----------
+                    transientHiddenSquares = {}; // reset previous transient hides
+
+                    if (move && move.captured) {
+                      // hide the destination square immediately so captured piece vanishes on next frame
+                      transientHiddenSquares[move.to] = true;
+
+                      // handle en-passant: capture square is not move.to but same file as move.to and rank from move.from
+                      if (move.flags && move.flags.indexOf('e') !== -1) {
+                        const capSquare = move.to[0] + move.from[1]; // e.g. move.to = "d6", move.from = "e5" -> capSquare = "d5"
+                        transientHiddenSquares[capSquare] = true;
+                      }
+                    }
+                    // ---------- END transient hide ----------
+
                     // Compute center of dropped-to square
                     let toX = BOARD_X + col * SQUARE_SIZE + SQUARE_SIZE / 2;
                     let toY = BOARD_Y + row * SQUARE_SIZE + SQUARE_SIZE / 2;
