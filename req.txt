@@ -1,0 +1,12 @@
+Drag and Hold Animation System
+Your piece selection needs a pulsing size animation that creates a breathing effect, making pieces grow and shrink smoothly while being held. The selected piece should have a light transparent blue circular glow that follows it during dragging. The target square under your cursor should display a thin blue border that appears instantly when you hover over valid drop locations.
+Drop and Release Animation System
+When you release a piece onto a valid square, that square needs a blue expansion animation that radiates outward from the center to the edges of the square. This animation should render behind the piece, so the piece appears to land on top of the expanding blue effect. The animation should be brief but noticeable, providing satisfying visual feedback for successful moves.
+Legal Move Indicator Enhancement System
+Your existing legal move system needs expansion to differentiate between regular moves and captures. Regular legal moves should maintain their current appearance, while legal moves that would capture an opponent piece should display red circles behind the target pieces. These red indicators should be clearly distinguishable from the blue movement indicators.
+Capture Animation System
+When a capture actually occurs, the captured piece's square should trigger a red expansion animation similar to the blue drop animation, but in red to indicate the aggressive nature of the action. This animation should expand outward from the square's center and appear behind the captured piece before it disappears from the board.
+Check Warning System
+When the king enters check, its square should display a distinctive white outline that creates a partial border effect around the square edges without forming complete walls. This creates an urgent but not overwhelming visual cue that clearly indicates the check condition without obscuring the piece itself.
+Enhanced Move Validation Visual System
+The legal move detection needs to integrate with the visual system to provide different colored indicators based on move types, creating an intuitive color-coded system where blue represents safe movement and red represents capture opportunities or threats.

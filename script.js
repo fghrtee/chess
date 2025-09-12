@@ -122,8 +122,8 @@ let modalVisible    = false;
 const MODAL_W = 0.5;    // fraction of canvas width
 const MODAL_H = 0.6;    // fraction of canvas height
 const MODAL_RX = 10;    // corner radius
-let currentSet      = 'cburnett';   // default
-const pieceSets     = ['kosal','alpha','cburnett','leipzig','merida'];
+let currentSet      = 'neo';   // default
+const pieceSets     = ['kosal','alpha','cburnett','leipzig','merida', 'neo'];
 let easing = 0.05;
 let gameSettings = {
     animationDuration: ANIMATION_DURATION,
@@ -140,26 +140,50 @@ const boardThemes = {
     brown:  'assets/Boards/brown.png',
     green:   'assets/Boards/green.png',
     grey:    'assets/Boards/grey.jpg',
+    purple:   'assets/Boards/purple.png',
     // …add your filenames here
   };
-  let currentBoard = 'brown'; // default
+  let currentBoard = 'purple'; // default
   let showPieceDropdown = false;
-let showBoardDropdown = false;
+  let showBoardDropdown = false;
 
 // Global variables for button properties
 let backButtonX, backButtonY, backButtonWidth, backButtonHeight;
 let bestMoveButtonX, bestMoveButtonY, bestMoveButtonWidth, bestMoveButtonHeight;
 let moveSound, captureSound;
+// ---------- Stockfish slider globals ----------
+let sfSlider = {
+  min: 1,
+  max: 20,
+  value: 1,        // float while dragging
+  dragging: false,
+  x: 0, y: 0, w: 0, h: 0,
+  knobRadius: 12,
+  padding: 12      // left/right padding inside track
+};
+
+function updateStockfishLevelFromSlider() {
+  stockfishLevel = constrain(Math.round(sfSlider.value), sfSlider.min, sfSlider.max);
+}
+
 function loadPieceSet(setName) {
     const base = `assets/Pieces/${setName}`;
     let types = ['P','R','N','B','Q','K'];
+    if(setName === 'neo') {
     for (let t of types) {
+      PIECES[t]      = loadImage(`${base}/w${t}.png`);
+      PIECES[t.toLowerCase()] = loadImage(`${base}/b${t}.png`);
+    }
+    currentSet = setName;
+  }
+else{
+      for (let t of types) {
       PIECES[t]      = loadImage(`${base}/w${t}.svg`);
       PIECES[t.toLowerCase()] = loadImage(`${base}/b${t}.svg`);
     }
     currentSet = setName;
-  }
-
+}
+}
 function preload() {
     const base = 'assets/Pieces/kosal';
     let pieceTypes = ['P', 'R', 'N', 'B', 'Q', 'K'];
@@ -562,7 +586,6 @@ function startGame() {
 function setup() {
   pixelDensity(3);
   frameRate(60);
-  noSmooth();
   imageMode(CENTER);
 
   canvasParent = document.getElementById('board-container') || document.body;
@@ -1133,9 +1156,6 @@ if (moveAnimation) {
 
 
 if (draggingPiece) {
-  // draggingPiece.piece can be either:
-  // - a string key like "P" or "p"
-  // - an object { type: "p", color: "w" }
   const pieceData = draggingPiece.piece;
   let pieceKeyLocal = null;
 
@@ -1148,10 +1168,37 @@ if (draggingPiece) {
   }
 
   const drawImg = pieceKeyLocal ? (pieceCache[pieceKeyLocal] || PIECES[pieceKeyLocal]) : null;
+
+  // 🔵 Draw a static glow circle (no pulsing)
+  drawPieceGlowStatic(draggingPiece.x, draggingPiece.y);
+
   if (drawImg) {
-    image(drawImg, draggingPiece.x, draggingPiece.y, SQUARE_SIZE * 1.2, SQUARE_SIZE * 1.2);
+    // ♟️ Make the piece gently pulse
+    const animationTime = millis();
+    const pulseSpeed = 0.012; // adjust for slower/faster pulsing
+    const pulseAmount = Math.sin(animationTime * pulseSpeed) * 0.08 + 1.0; // 0.92 → 1.08 scaling
+
+    const pieceSize = SQUARE_SIZE * pulseAmount;
+
+    imageMode(CENTER);
+    image(drawImg, draggingPiece.x, draggingPiece.y, pieceSize, pieceSize);
   }
 }
+
+// 🟢 Static one-circle glow (no pulse)
+function drawPieceGlowStatic(x, y) {
+  push();
+  noStroke();
+
+  const glowDiameter = SQUARE_SIZE * 1.6;
+  fill(172, 234, 246, 120); // light cyan glow
+  ellipse(x, y, glowDiameter, glowDiameter);
+
+  pop();
+}
+
+
+
 
   if (pendingPromotion) {
     drawPromotionOptions();
@@ -1359,99 +1406,88 @@ function goToMenu() {
 
 function drawMenu() {
     background(BG_COLOR);
-  
+
     const w = width;
     const h = height;
-  
-    // — your title, slider, etc. — 
-  
-    // —— Buttons ——  
-    // Compute width/height/positions responsively
-    const btnW = constrain(w * 0.7, 150, 250);      // e.g. same as sliderW
-    const btnH = w < 400 ? 40 : 60;                 // responsive height
-    const btnX = (w - btnW) / 2;                    // center horizontally
-    const playY = h * 0.5;                          // example vertical
-    const customY = playY + btnH + 20;              // spaced below
-  
-    // ── STORE these values into your globals ──
-    menuPlayX   = btnX;
-    menuPlayY   = playY;
-    menuBtnW    = btnW;
-    menuBtnH    = btnH;
+
+    // —— Menu buttons (Play / Custom) ——
+    const btnW = constrain(w * 0.7, 150, 250);
+    const btnH = w < 400 ? 40 : 60;
+    const btnX = (w - btnW) / 2;
+    const playY = h * 0.5;
+    const customY = playY + btnH + 20;
+
+    // store globals for other code
+    menuPlayX = btnX;
+    menuPlayY = playY;
+    menuBtnW = btnW;
+    menuBtnH = btnH;
     menuCustomX = btnX;
     menuCustomY = customY;
-  
-    // Draw "Play Mode" button
+
+    // Play Mode button
     const playHovered = !modalVisible &&
         mouseX > menuPlayX && mouseX < menuPlayX + menuBtnW &&
         mouseY > menuPlayY && mouseY < menuPlayY + menuBtnH;
     fill(playHovered ? BUTTON_HOVER : BUTTON_COLOR);
-
     rect(menuPlayX, menuPlayY, menuBtnW, menuBtnH, 10);
     fill(255);
     textAlign(CENTER, CENTER);
     textSize(24);
-    text("Play Mode", menuPlayX + menuBtnW/2, menuPlayY + menuBtnH/2);
-  
-    // Draw "Custom Mode" button
+    text("Play Mode", menuPlayX + menuBtnW / 2, menuPlayY + menuBtnH / 2);
+
+    // Custom Mode button
     const customHovered = !modalVisible &&
         mouseX > menuCustomX && mouseX < menuCustomX + menuBtnW &&
         mouseY > menuCustomY && mouseY < menuCustomY + menuBtnH;
     fill(customHovered ? BUTTON_HOVER : BUTTON_COLOR);
-
     rect(menuCustomX, menuCustomY, menuBtnW, menuBtnH, 10);
     fill(255);
-    text("Custom Mode", menuCustomX + menuBtnW/2, menuCustomY + menuBtnH/2);
-  
-    // —— Gear Icon for settings (top-right corner) ——
-    const gearSize = 40,
-          gearX    = w - gearSize - 20,
-          gearY    = 20;
+    text("Custom Mode", menuCustomX + menuBtnW / 2, menuCustomY + menuBtnH / 2);
 
-    // hover tint
+    // Gear icon (top-right)
+    const gearSize = 40;
+    const gearX = w - gearSize - 20;
+    const gearY = 20;
     const gearHovered = !modalVisible &&
         mouseX > gearX && mouseX < gearX + gearSize &&
         mouseY > gearY && mouseY < gearY + gearSize;
     fill(gearHovered ? color(255, 100, 100) : 200);
-
-    ellipse(gearX + gearSize/2, gearY + gearSize/2, gearSize);
+    ellipse(gearX + gearSize / 2, gearY + gearSize / 2, gearSize);
     fill(0);
     textSize(24);
     textAlign(CENTER, CENTER);
-    text("⚙️", gearX + gearSize/2, gearY + gearSize/2);
+    text("⚙️", gearX + gearSize / 2, gearY + gearSize / 2);
 
-    // Store gear click area
-    if (!window.modalClickAreas) {
-        window.modalClickAreas = {};
-    }
-    window.modalClickAreas.gear = {x: gearX, y: gearY, w: gearSize, h: gearSize};
-  
-    // === ENHANCED MODAL ===
+    // Ensure modalClickAreas exists
+    window.modalClickAreas = window.modalClickAreas || {};
+    window.modalClickAreas.gear = { x: gearX, y: gearY, w: gearSize, h: gearSize };
+
+    // === Modal ===
     if (modalVisible) {
-        const mW = w * MODAL_W, mH = h * MODAL_H;
-        const mX = (w - mW) / 2, mY = (h - mH) / 2;
+        const mW = w * MODAL_W;
+        const mH = h * MODAL_H;
+        const mX = (w - mW) / 2;
+        const mY = (h - mH) / 2;
         const ddW = 180, ddH = 35;
         const pad = 30;
         const startX = mX + pad;
-        const sectionGap = 50;
-        
-        // Modal backdrop (solid, not transparent)
+        const sectionGap = 40;
+
+        // Backdrop & modal box
         fill(0, 0, 0, 180);
         rect(0, 0, w, h);
-        
-        // Modal background (solid)
         fill(45, 45, 45);
         stroke(100, 100, 100);
         strokeWeight(2);
         rect(mX, mY, mW, mH, 12);
-        
-        // Modal header
-        fill(255, 255, 255);
+
+        // Header + close button
+        fill(255);
         textSize(24);
         textAlign(CENTER, CENTER);
-        text("Settings", mX + mW/2, mY + 35);
-        
-        // Close button (X)
+        text("Settings", mX + mW / 2, mY + 35);
+
         let closeSize = 30;
         let closeX = mX + mW - closeSize - 15;
         let closeY = mY + 15;
@@ -1462,225 +1498,234 @@ function drawMenu() {
         fill(255);
         textSize(18);
         textAlign(CENTER, CENTER);
-        text("✕", closeX + closeSize/2, closeY + closeSize/2);
-        
-        // Store click areas for mouse handling
-        window.modalClickAreas.close = {x: closeX, y: closeY, w: closeSize, h: closeSize};
+        text("✕", closeX + closeSize / 2, closeY + closeSize / 2);
+        window.modalClickAreas.close = { x: closeX, y: closeY, w: closeSize, h: closeSize };
 
-        let currentY = mY + 80; // Starting Y position after header
-        
+        // -------------------------
+        // Initialize sfSlider if not present (safe guard)
+        // -------------------------
+        if (typeof sfSlider === "undefined" || sfSlider == null) {
+            sfSlider = {
+                min: 1,
+                max: 20,
+                value: (typeof stockfishLevel !== "undefined") ? stockfishLevel : 1,
+                dragging: false,
+                x: 0, y: 0, w: 0, h: 0,
+                knobRadius: Math.max(10, Math.min(16, mW * 0.008)),
+                padding: 12
+            };
+        }
+
+        // --- Responsive slider placement (top area of modal) ---
+        push();
+        // slider vertical offset relative to modal height (keeps responsive)
+        const sliderTopGap = Math.max(56, mH * 0.08);
+        const labelGap = 18;
+        const sliderTrackH = Math.max(8, Math.min(14, mW * 0.0025));
+
+        const sliderX = mX + pad;
+        const sliderW = mW - pad * 2;
+        const sliderY = mY + sliderTopGap;
+
+        // store for interaction
+        sfSlider.x = sliderX;
+        sfSlider.y = sliderY;
+        sfSlider.w = sliderW;
+        sfSlider.h = sliderTrackH;
+
+        // Label
+        fill(220);
+        textSize(14);
+        textAlign(LEFT, CENTER);
+        text("Engine Difficulty", sliderX, sliderY - labelGap);
+
+        // Track background
+        noStroke();
+        fill(70);
+        rect(sliderX, sliderY, sliderW, sliderTrackH, 6);
+
+        // Knob positions
+        const knobLeft = sliderX + sfSlider.padding;
+        const knobRight = sliderX + sliderW - sfSlider.padding;
+        const knobX = map(sfSlider.value, sfSlider.min, sfSlider.max, knobLeft, knobRight);
+
+        // Fill up to knob
+        fill(100, 160, 255, 160);
+        rect(sliderX, sliderY, knobX - sliderX, sliderTrackH, 6);
+
+        // Ticks (every level; smaller ticks on odd levels)
+        stroke(150, 150, 150, 90);
+        strokeWeight(1);
+        for (let lvl = sfSlider.min; lvl <= sfSlider.max; lvl++) {
+            const tx = map(lvl, sfSlider.min, sfSlider.max, knobLeft, knobRight);
+            if (lvl % 2 === 0) {
+                line(tx, sliderY + sliderTrackH + 6, tx, sliderY + sliderTrackH + 12);
+            } else {
+                line(tx, sliderY + sliderTrackH + 8, tx, sliderY + sliderTrackH + 12);
+            }
+        }
+        noStroke();
+
+        // Knob
+        const isOverKnob = dist(mouseX, mouseY, knobX, sliderY + sliderTrackH / 2) <= sfSlider.knobRadius * 1.6;
+        fill(sfSlider.dragging || isOverKnob ? color(255, 200, 80) : color(240));
+        stroke(120);
+        strokeWeight(1);
+        ellipse(knobX, sliderY + sliderTrackH / 2, sfSlider.knobRadius * 2.2);
+
+        // Current level badge (right aligned within modal content area)
+        const lvl = constrain(Math.round(sfSlider.value), sfSlider.min, sfSlider.max);
+        const settings = (typeof levelSettings !== "undefined" && levelSettings[lvl]) ? levelSettings[lvl] : { elo: "?", depth: "?", time: "?" };
+        noStroke();
+        fill(255);
+        textAlign(RIGHT, CENTER);
+        textSize(13);
+        text(`Level ${lvl} — ${settings.elo} ELO — d${settings.depth} — ${settings.time}ms`, sliderX + sliderW, sliderY + sliderTrackH / 2);
+
+        // Save click area
+        window.modalClickAreas.stockfishSlider = {
+            x: sliderX - 6,
+            y: sliderY - 12,
+            w: sliderW + 12,
+            h: sliderTrackH + 30
+        };
+        pop();
+
+        // Start sections BELOW the slider. currentY keeps flow and avoids collisions.
+        // enough spacing so the slider + label + ticks + gap are clear
+        let currentY = sliderY + sliderTrackH + 28;
+
         // === PIECE SET SECTION ===
         push();
-            // Section title
-            fill(255, 255, 255);
-            textSize(18);
-            textAlign(LEFT, CENTER);
-            text("Piece Set:", startX, currentY);
-            
-            currentY += 35; // Space after title
-            
-            // Main dropdown button with enhanced styling
-            let isHoveringPiece = mouseX >= startX && mouseX <= startX + ddW && 
-                                 mouseY >= currentY && mouseY <= currentY + ddH;
-            
-            // Store click area for piece dropdown button
-            window.modalClickAreas.pieceButton = {x: startX, y: currentY, w: ddW, h: ddH};
-            
-            // Dropdown button background with gradient effect
-            if (isHoveringPiece) {
-                fill(120, 120, 120);
-            } else {
-                fill(90, 90, 90);
+        fill(255, 255, 255);
+        textSize(18);
+        textAlign(LEFT, CENTER);
+        text("Piece Set:", startX, currentY);
+
+        currentY += 35; // after title
+
+        // Dropdown button area (piece sets)
+        let isHoveringPiece = mouseX >= startX && mouseX <= startX + ddW &&
+            mouseY >= currentY && mouseY <= currentY + ddH;
+        window.modalClickAreas.pieceButton = { x: startX, y: currentY, w: ddW, h: ddH };
+        if (isHoveringPiece) fill(120, 120, 120); else fill(90, 90, 90);
+        stroke(180, 180, 180);
+        strokeWeight(1);
+        rect(startX, currentY, ddW, ddH, 8);
+
+        fill(255);
+        textSize(16);
+        textAlign(LEFT, CENTER);
+        text(currentSet, startX + 15, currentY + ddH / 2);
+
+        fill(200, 200, 200);
+        triangle(startX + ddW - 25, currentY + ddH / 2 - 5,
+            startX + ddW - 25, currentY + ddH / 2 + 5,
+            startX + ddW - 15, currentY + ddH / 2);
+
+        currentY += ddH;
+
+        if (showPieceDropdown) {
+            window.modalClickAreas.pieceItems = [];
+            fill(20, 20, 20, 200);
+            rect(startX - 5, currentY, ddW + 10, pieceSets.length * ddH + 10, 8);
+            for (let i = 0; i < pieceSets.length; i++) {
+                let itemY = currentY + 5 + i * ddH;
+                let isSelected = pieceSets[i] === currentSet;
+                let isHovering = mouseX >= startX && mouseX <= startX + ddW &&
+                    mouseY >= itemY && mouseY <= itemY + ddH;
+                window.modalClickAreas.pieceItems.push({ x: startX, y: itemY, w: ddW, h: ddH, value: pieceSets[i] });
+                if (isSelected) { fill(60, 120, 180); stroke(100, 150, 200); }
+                else if (isHovering) { fill(100, 100, 100); stroke(140, 140, 140); }
+                else { fill(70, 70, 70); stroke(100, 100, 100); }
+                strokeWeight(1);
+                rect(startX, itemY, ddW, ddH, 6);
+                fill(isSelected ? 255 : 220);
+                textAlign(LEFT, CENTER);
+                textSize(15);
+                text(pieceSets[i], startX + 15, itemY + ddH / 2);
             }
-            stroke(180, 180, 180);
-            strokeWeight(1);
-            rect(startX, currentY, ddW, ddH, 8);
-            
-            // Dropdown button text
-            fill(255, 255, 255);
-            textSize(16);
-            textAlign(LEFT, CENTER);
-            text(currentSet, startX + 15, currentY + ddH/2);
-            
-            // Dropdown arrow
-            fill(200, 200, 200);
-            triangle(startX + ddW - 25, currentY + ddH/2 - 5,
-                     startX + ddW - 25, currentY + ddH/2 + 5,
-                     startX + ddW - 15, currentY + ddH/2);
-            
-            currentY += ddH; // Move past the main button
-            
-            // Dropdown list with improved styling
-            if (showPieceDropdown) {
-                // Store click areas for dropdown items
-                window.modalClickAreas.pieceItems = [];
-                
-                // Semi-transparent overlay behind dropdown
-                fill(20, 20, 20, 200);
-                rect(startX - 5, currentY, ddW + 10, pieceSets.length * ddH + 10, 8);
-                
-                for (let i = 0; i < pieceSets.length; i++) {
-                    let itemY = currentY + 5 + i * ddH;
-                    let isSelected = pieceSets[i] === currentSet;
-                    let isHovering = mouseX >= startX && mouseX <= startX + ddW && 
-                                    mouseY >= itemY && mouseY <= itemY + ddH;
-                    
-                    // Store click area for this item
-                    window.modalClickAreas.pieceItems.push({
-                        x: startX, y: itemY, w: ddW, h: ddH, value: pieceSets[i]
-                    });
-                    
-                    // Item background
-                    if (isSelected) {
-                        fill(60, 120, 180); // Selected item - blue
-                        stroke(100, 150, 200);
-                    } else if (isHovering) {
-                        fill(100, 100, 100); // Hovered item
-                        stroke(140, 140, 140);
-                    } else {
-                        fill(70, 70, 70); // Default item
-                        stroke(100, 100, 100);
-                    }
-                    strokeWeight(1);
-                    rect(startX, itemY, ddW, ddH, 6);
-                    
-                    // Item text
-                    fill(isSelected ? 255 : 220);
-                    textAlign(LEFT, CENTER);
-                    textSize(15);
-                    text(pieceSets[i], startX + 15, itemY + ddH/2);
-                }
-                currentY += pieceSets.length * ddH + 10; // Account for dropdown height + padding
-            }
+            currentY += pieceSets.length * ddH + 10;
+        }
         pop();
-        
-        // Add section gap
+
         currentY += sectionGap;
-        
+
         // === BOARD THEME SECTION ===
-        let boardKeys = Object.keys(boardThemes);
+        let boardKeys = Object.keys(boardThemes || {});
         push();
-            // Section title
-            fill(255, 255, 255);
-            textSize(18);
-            textAlign(LEFT, CENTER);
-            text("Board Theme:", startX, currentY);
-            
-            currentY += 35; // Space after title
-            
-            // Main dropdown button with enhanced styling
-            let isHoveringBoard = mouseX >= startX && mouseX <= startX + ddW && 
-                                 mouseY >= currentY && mouseY <= currentY + ddH;
-            
-            // Store click area for board dropdown button
-            window.modalClickAreas.boardButton = {x: startX, y: currentY, w: ddW, h: ddH};
-            
-            // Dropdown button background
-            if (isHoveringBoard) {
-                fill(120, 120, 120);
-            } else {
-                fill(90, 90, 90);
+        fill(255, 255, 255);
+        textSize(18);
+        textAlign(LEFT, CENTER);
+        text("Board Theme:", startX, currentY);
+        currentY += 35;
+
+        let isHoveringBoard = mouseX >= startX && mouseX <= startX + ddW &&
+            mouseY >= currentY && mouseY <= currentY + ddH;
+        window.modalClickAreas.boardButton = { x: startX, y: currentY, w: ddW, h: ddH };
+        if (isHoveringBoard) fill(120, 120, 120); else fill(90, 90, 90);
+        stroke(180, 180, 180);
+        strokeWeight(1);
+        rect(startX, currentY, ddW, ddH, 8);
+        fill(255);
+        textSize(16);
+        textAlign(LEFT, CENTER);
+        text(currentBoard, startX + 15, currentY + ddH / 2);
+        fill(200, 200, 200);
+        triangle(startX + ddW - 25, currentY + ddH / 2 - 5,
+            startX + ddW - 25, currentY + ddH / 2 + 5,
+            startX + ddW - 15, currentY + ddH / 2);
+        currentY += ddH;
+
+        if (showBoardDropdown) {
+            window.modalClickAreas.boardItems = [];
+            fill(20, 20, 20, 200);
+            rect(startX - 5, currentY, ddW + 10, boardKeys.length * ddH + 10, 8);
+            for (let i = 0; i < boardKeys.length; i++) {
+                let itemY = currentY + 5 + i * ddH;
+                let isSelected = boardKeys[i] === currentBoard;
+                let isHovering = mouseX >= startX && mouseX <= startX + ddW &&
+                    mouseY >= itemY && mouseY <= itemY + ddH;
+                window.modalClickAreas.boardItems.push({ x: startX, y: itemY, w: ddW, h: ddH, value: boardKeys[i] });
+                if (isSelected) { fill(60, 120, 180); stroke(100, 150, 200); }
+                else if (isHovering) { fill(100, 100, 100); stroke(140, 140, 140); }
+                else { fill(70, 70, 70); stroke(100, 100, 100); }
+                strokeWeight(1);
+                rect(startX, itemY, ddW, ddH, 6);
+                fill(isSelected ? 255 : 220);
+                textAlign(LEFT, CENTER);
+                textSize(15);
+                text(boardKeys[i], startX + 15, itemY + ddH / 2);
             }
-            stroke(180, 180, 180);
-            strokeWeight(1);
-            rect(startX, currentY, ddW, ddH, 8);
-            
-            // Dropdown button text
-            fill(255, 255, 255);
-            textSize(16);
-            textAlign(LEFT, CENTER);
-            text(currentBoard, startX + 15, currentY + ddH/2);
-            
-            // Dropdown arrow
-            fill(200, 200, 200);
-            triangle(startX + ddW - 25, currentY + ddH/2 - 5,
-                     startX + ddW - 25, currentY + ddH/2 + 5,
-                     startX + ddW - 15, currentY + ddH/2);
-            
-            currentY += ddH; // Move past the main button
-            
-            // Dropdown list with improved styling
-            if (showBoardDropdown) {
-                // Store click areas for dropdown items
-                window.modalClickAreas.boardItems = [];
-                
-                // Semi-transparent overlay behind dropdown
-                fill(20, 20, 20, 200);
-                rect(startX - 5, currentY, ddW + 10, boardKeys.length * ddH + 10, 8);
-                
-                for (let i = 0; i < boardKeys.length; i++) {
-                    let itemY = currentY + 5 + i * ddH;
-                    let isSelected = boardKeys[i] === currentBoard;
-                    let isHovering = mouseX >= startX && mouseX <= startX + ddW && 
-                                    mouseY >= itemY && mouseY <= itemY + ddH;
-                    
-                    // Store click area for this item
-                    window.modalClickAreas.boardItems.push({
-                        x: startX, y: itemY, w: ddW, h: ddH, value: boardKeys[i]
-                    });
-                    
-                    // Item background
-                    if (isSelected) {
-                        fill(60, 120, 180); // Selected item - blue
-                        stroke(100, 150, 200);
-                    } else if (isHovering) {
-                        fill(100, 100, 100); // Hovered item
-                        stroke(140, 140, 140);
-                    } else {
-                        fill(70, 70, 70); // Default item
-                        stroke(100, 100, 100);
-                    }
-                    strokeWeight(1);
-                    rect(startX, itemY, ddW, ddH, 6);
-                    
-                    // Item text
-                    fill(isSelected ? 255 : 220);
-                    textAlign(LEFT, CENTER);
-                    textSize(15);
-                    text(boardKeys[i], startX + 15, itemY + ddH/2);
-                }
-            }
+            currentY += boardKeys.length * ddH + 10;
+        }
         pop();
-        
-         // Responsive sizing: fraction of modal width, clamped
-          const minW = 80;
-          const maxW = 160;
-          const btnW = constrain(mW * 0.22, minW, maxW); // ~22% of modal width
-          const btnH = (mW < 420) ? 36 : 48;              // smaller on narrow modals
-          const gap  = 20;
 
-          // Position bottom-right inside the modal
-          const backXr = mX + mW - btnW - gap;
-          const backYr = mY + mH - btnH - gap;
-
-          // Store clickable area for handleModalClick()
-          window.modalClickAreas = window.modalClickAreas || {};
-          window.modalClickAreas.backButton = { x: backXr, y: backYr, w: btnW, h: btnH };
-
-          // Hover test
-          const isHoveringBack = mouseX >= backXr && mouseX <= backXr + btnW &&
-                                 mouseY >= backYr && mouseY <= backYr + btnH;
-
-          push();
-          strokeWeight(2);
-
-          // Use your color constants (no external CSS)
-          fill(isHoveringBack ? BUTTON_HOVER : BUTTON_COLOR);
-          // subtle stroke tint
-          if (isHoveringBack) stroke(120, 180, 120);
-          else stroke(100, 160, 100);
-
-          rect(backXr, backYr, btnW, btnH, 10);
-
-          // Label scales with button height
-          noStroke();
-          fill(255);
-          textAlign(CENTER, CENTER);
-          textSize(constrain(btnH * 0.42, 12, 18));
-          text("Back", backXr + btnW / 2, backYr + btnH / 2);
-          pop();
+        // bottom-right Back button
+        const minW = 80;
+        const maxW = 160;
+        const backBtnW = constrain(mW * 0.22, minW, maxW);
+        const backBtnH = (mW < 420) ? 36 : 48;
+        const gap = 20;
+        const backXr = mX + mW - backBtnW - gap;
+        const backYr = mY + mH - backBtnH - gap;
+        window.modalClickAreas.backButton = { x: backXr, y: backYr, w: backBtnW, h: backBtnH };
+        const isHoveringBack = mouseX >= backXr && mouseX <= backXr + backBtnW &&
+            mouseY >= backYr && mouseY <= backYr + backBtnH;
+        push();
+        strokeWeight(2);
+        fill(isHoveringBack ? BUTTON_HOVER : BUTTON_COLOR);
+        if (isHoveringBack) stroke(120, 180, 120); else stroke(100, 160, 100);
+        rect(backXr, backYr, backBtnW, backBtnH, 10);
+        noStroke();
+        fill(255);
+        textAlign(CENTER, CENTER);
+        textSize(constrain(backBtnH * 0.42, 12, 18));
+        text("Back", backXr + backBtnW / 2, backYr + backBtnH / 2);
+        pop();
     }
 }
+
 
 // === CLICK HANDLER FUNCTION ===
 // Add this function to handle modal clicks - call it from your mousePressed() function
@@ -2730,15 +2775,33 @@ if (gameMode === "play" && chess.turn() === "w" && row >= 0 && row < 8 && col >=
   const square = gridToChess(row, col);
   const piece = chess.get(square);
 
-  // --- CASE 1: Selecting a piece ---
-  if (!selectedSquare) {
-    if (piece && piece.color === "w" && !chess.game_over()) {
-      selectedSquare = square;
-      legalMoves = chess.moves({ square: square, verbose: true });
-      console.log("Selected piece on:", square, "Legal moves:", legalMoves);
-    }
-    return;
+// --- CASE 1: Selecting a piece ---
+if (!selectedSquare) {
+  if (piece && piece.color === "w" && !chess.game_over()) {
+    selectedSquare = square;
+    legalMoves = chess.moves({ square: square, verbose: true });
+    console.log("Selected piece on:", square, "Legal moves:", legalMoves);
+
+    // <<< NEW: create a draggingPiece immediately so the glow + pulsing piece shows on click
+    // Note: we DO NOT remove the piece from the board here (preserves click-to-move).
+    let centerX = BOARD_X + col * SQUARE_SIZE + SQUARE_SIZE / 2;
+    let centerY = BOARD_Y + row * SQUARE_SIZE + SQUARE_SIZE / 2;
+    let pieceKey = piece.color === 'w' ? piece.type.toUpperCase() : piece.type.toLowerCase();
+
+    draggingPiece = {
+      square: square,
+      piece: pieceKey,
+      x: mouseX,            // start drawing at the mouse location (will follow mouse)
+      y: mouseY,
+      startX: centerX,
+      startY: centerY,
+      fromClick: true       // optional flag so you can detect it if needed
+    };
+    // <<< END NEW
   }
+  return;
+}
+
 
   // --- CASE 2: Clicking a destination ---
   let possibleMoves = legalMoves.filter(m => m.to === square);
